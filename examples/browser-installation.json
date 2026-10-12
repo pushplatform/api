@@ -1,0 +1,6 @@
+{
+  "application_id": "11111111-1111-4111-8111-111111111111",
+  "device_id": "example-browser-device-001",
+  "platform": "web",
+  "environment": "development"
+}

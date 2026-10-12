@@ -1,0 +1,1777 @@
+openapi: 3.0.3
+info:
+  title: PushPilot Public REST API
+  version: 1.0.0
+  description: "Публичный контракт интеграции по фактически зарегистрированным маршрутам. sent
+    означает принятие провайдером, а не доставку на устройство. Admin/Owner, формы сайта и session
+    API Console исключены. Адрес сервера намеренно относительный: используйте base URL своего
+    инстанса. Сверка 2026-10-12; детали и ограничения в README и docs/contract.md."
+servers:
+  - url: /
+    description: Относительный URL. Замените origin на предоставленный адрес вашего инстанса; production
+      URL не заявляется.
+tags:
+  - name: Устройства
+  - name: Сообщения
+  - name: Web Browser
+security:
+  - ServerApiKey: []
+paths:
+  /v1/installations:
+    post:
+      operationId: registerInstallation
+      summary: Зарегистрировать установку
+      tags:
+        - Устройства
+      responses:
+        "201":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Installation"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Повтор application_id/environment/device_id обновляет метаданные и возвращает тот же
+        id; HTTP 201 в обоих случаях.
+      x-required-scopes:
+        - devices:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInstallation"
+  /v1/installations/{id}:
+    get:
+      operationId: getInstallation
+      summary: Получить установку и маскированные подписки
+      tags:
+        - Устройства
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Installation"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Достаточно любого одного из devices:read или devices:write.
+      x-required-scopes:
+        - devices:read
+        - devices:write
+      parameters:
+        - $ref: "#/components/parameters/id"
+    patch:
+      operationId: updateInstallationAssociation
+      summary: Изменить привязку пользователя (legacy)
+      tags:
+        - Устройства
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            text/plain:
+              schema:
+                $ref: "#/components/schemas/EmptyObject"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Ответ {} записан без установки JSON Content-Type; используйте login/logout для новых
+        интеграций.
+      x-required-scopes:
+        - devices:write
+      parameters:
+        - $ref: "#/components/parameters/id"
+      deprecated: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegacyAssociation"
+  /v1/installations/{id}/tokens:
+    post:
+      operationId: registerToken
+      summary: Зарегистрировать push-токен
+      tags:
+        - Устройства
+      responses:
+        "201":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisteredToken"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Дубликат токена в application/environment/provider активирует прежнюю подписку; при
+        другой установке переносит её. Никаких полных токенов в ответе.
+      x-required-scopes:
+        - devices:write
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterToken"
+  /v1/installations/{id}/subscriptions/{subscription_id}:
+    delete:
+      operationId: unsubscribe
+      summary: Удалить подписку установки
+      tags:
+        - Устройства
+      responses:
+        "204":
+          description: Операция выполнена.
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Повтор после удаления/отсутствующая подписка возвращает 204. Чужая существующая
+        подписка — 404. Этот маршрут проверяет проект, но отдельной проверки environment_id ключа в
+        обработчике нет.
+      x-required-scopes:
+        - devices:write
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/subscription_id"
+  /v1/installations/{id}/login:
+    post:
+      operationId: loginInstallation
+      summary: Привязать внешний ID пользователя
+      tags:
+        - Устройства
+      responses:
+        "204":
+          description: Операция выполнена.
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "500":
+          $ref: "#/components/responses/500"
+      description: external_user_id — ID вашей системы. user_id в Installation — внутренний UUID
+        PushPilot. Привязка не добавляет отправку по user_id.
+      x-required-scopes:
+        - devices:write
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Login"
+  /v1/installations/{id}/logout:
+    post:
+      operationId: logoutInstallation
+      summary: Снять привязку пользователя
+      tags:
+        - Устройства
+      responses:
+        "204":
+          description: Операция выполнена.
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "500":
+          $ref: "#/components/responses/500"
+      x-required-scopes:
+        - devices:write
+      parameters:
+        - $ref: "#/components/parameters/id"
+  /v1/messages:
+    post:
+      operationId: sendMessage
+      summary: Поставить push в очередь
+      tags:
+        - Сообщения
+      responses:
+        "202":
+          description: Запрос принят в очередь, отправка провайдеру ещё не подтверждена. Повтор idempotency
+            тоже возвращает pending.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcceptedMessage"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      description: "Тело до 65536 байт. Все получатели принадлежат приложению и одному окружению, подписки
+        активны. apns/ios: alert, background, voip (подписка apns_voip); fcm/android: alert,
+        background, data; web_push/web: alert, background. Окружение определяется по подпискам,
+        environment_id не передаётся. TTL ограничивается приоритетом: 600/7200/86400/604800 секунд.
+        idempotency_key в JSON, максимум 255 символов, 24 часа на организацию; сравнения тела нет,
+        конфликт 409 не предусмотрен."
+      x-required-scopes:
+        - messages:send
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessage"
+    get:
+      operationId: listMessages
+      summary: История сообщений
+      tags:
+        - Сообщения
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessagePage"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "500":
+          $ref: "#/components/responses/500"
+      description: created_at DESC. Нет total, cursor, has_more или status в строках истории. payload — base64.
+      x-required-scopes:
+        - messages:read
+      parameters:
+        - $ref: "#/components/parameters/application_id"
+        - $ref: "#/components/parameters/from"
+        - $ref: "#/components/parameters/to"
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+  /v1/messages/{messageID}:
+    get:
+      operationId: getMessage
+      summary: Получить статус и отправки сообщения
+      tags:
+        - Сообщения
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageDetails"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      description: "Агрегат: все delivered → delivered; все sent/delivered → sent; есть
+        pending/queued/sending → processing; иначе failed; пустой набор → pending."
+      x-required-scopes:
+        - messages:read
+      parameters:
+        - $ref: "#/components/parameters/messageID"
+  /v1/deliveries:
+    get:
+      operationId: listDeliveries
+      summary: История отправок по получателям
+      tags:
+        - Сообщения
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryPage"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "500":
+          $ref: "#/components/responses/500"
+      description: created_at DESC; items — записи отправок, не журнал отдельных попыток. Нет total/cursor.
+      x-required-scopes:
+        - messages:read
+      parameters:
+        - $ref: "#/components/parameters/status"
+        - $ref: "#/components/parameters/platform"
+        - $ref: "#/components/parameters/application_id"
+        - $ref: "#/components/parameters/message_id"
+        - $ref: "#/components/parameters/from"
+        - $ref: "#/components/parameters/to"
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+  /v1/analytics/deliveries:
+    get:
+      operationId: deliveryAnalytics
+      summary: Агрегированная аналитика отправок
+      tags:
+        - Сообщения
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Analytics"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "500":
+          $ref: "#/components/responses/500"
+      description: items группируются по status/platform/application_id в проекте и точном environment_id
+        ключа. usage для ключа без environment_id — суммы по организации, включая другие проекты;
+        application_id его не фильтрует. Для environment-scoped ключа usage ограничен событиями
+        отправок его проекта/окружения. from/to для usage применяются к period_start, для items к
+        created_at. quota — текущий план организации. Нет пагинации или временных buckets.
+      x-required-scopes:
+        - messages:read
+      parameters:
+        - $ref: "#/components/parameters/application_id"
+        - $ref: "#/components/parameters/from"
+        - $ref: "#/components/parameters/to"
+  /v1/web/{browser_key}/config:
+    get:
+      operationId: browserConfig
+      summary: Конфигурация web-приложения
+      tags:
+        - Web Browser
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserConfig"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Требует настроенного browser_key и Origin. Authorization не проверяется.
+      parameters:
+        - $ref: "#/components/parameters/browser_key"
+        - $ref: "#/components/parameters/Origin"
+      security: []
+  /v1/web/{browser_key}/installations:
+    post:
+      operationId: browserRegister
+      summary: Зарегистрировать web-установку
+      tags:
+        - Web Browser
+      responses:
+        "201":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserInstallation"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: "Для новой установки Authorization: Bearer <browser_key>. Повтор с тем же device_id и
+        public key → 409; повтор со своим действующим credential → прежний id и credential.
+        Потерянный credential восстанавливает backend после проверки пользователя."
+      parameters:
+        - $ref: "#/components/parameters/browser_key"
+        - $ref: "#/components/parameters/Origin"
+      security:
+        - BrowserPublicKey: []
+        - InstallationCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrowserRegisterInstallation"
+  /v1/web/{browser_key}/installations/{id}/tokens:
+    post:
+      operationId: browserRegisterToken
+      summary: Зарегистрировать Web Push подписку
+      tags:
+        - Web Browser
+      responses:
+        "201":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserRegisteredToken"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Передавайте реальные endpoint/keys из браузерного PushSubscription. Перенос подписки
+        другой установки запрещён.
+      parameters:
+        - $ref: "#/components/parameters/browser_key"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/id"
+      security:
+        - InstallationCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrowserRegisterToken"
+  /v1/web/{browser_key}/installations/{id}/subscriptions/{subscription_id}:
+    delete:
+      operationId: browserUnsubscribe
+      summary: Удалить свою Web Push подписку
+      tags:
+        - Web Browser
+      responses:
+        "204":
+          description: Операция выполнена.
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Повтор своего DELETE → 204; чужая или неизвестная подписка → 404.
+      parameters:
+        - $ref: "#/components/parameters/browser_key"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/subscription_id"
+      security:
+        - InstallationCredential: []
+  /v1/web/{browser_key}/installations/{id}/login:
+    post:
+      operationId: browserLogin
+      summary: Привязать пользователя по одноразовому proof
+      tags:
+        - Web Browser
+      responses:
+        "204":
+          description: Операция выполнена.
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Proof получает доверенный backend через issueIdentityProof после проверки своей сессии
+        пользователя.
+      parameters:
+        - $ref: "#/components/parameters/browser_key"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/id"
+      security:
+        - InstallationCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BrowserLogin"
+  /v1/web/{browser_key}/installations/{id}/logout:
+    post:
+      operationId: browserLogout
+      summary: Снять web-привязку пользователя
+      tags:
+        - Web Browser
+      responses:
+        "204":
+          description: Операция выполнена.
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      parameters:
+        - $ref: "#/components/parameters/browser_key"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/id"
+      security:
+        - InstallationCredential: []
+  /v1/web/{browser_key}/installations/{id}/credential/renew:
+    post:
+      operationId: browserRenew
+      summary: Заменить credential установки
+      tags:
+        - Web Browser
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserInstallation"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Старый credential сразу недействителен; новый действует 7 дней. Для запроса нужен ещё
+        действующий credential.
+      parameters:
+        - $ref: "#/components/parameters/browser_key"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/id"
+      security:
+        - InstallationCredential: []
+  /v1/web/{browser_key}/installations/{id}/credential:
+    delete:
+      operationId: browserRevoke
+      summary: Отозвать credential установки
+      tags:
+        - Web Browser
+      responses:
+        "204":
+          description: Операция выполнена.
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "409":
+          $ref: "#/components/responses/409"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Отзывает credential; не удаляет подписки и не снимает user_id. Для прекращения push
+        удалите подписку отдельно.
+      parameters:
+        - $ref: "#/components/parameters/browser_key"
+        - $ref: "#/components/parameters/Origin"
+        - $ref: "#/components/parameters/id"
+      security:
+        - InstallationCredential: []
+  /v1/web/identity-proofs:
+    post:
+      operationId: issueIdentityProof
+      summary: "Backend: выдать proof web-пользователя"
+      tags:
+        - Web Browser
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdentityProof"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Только server API key. Сначала backend проверяет свою сессию и соответствие
+        installation_id пользователю. Proof одноразовый, 1 минута, привязан к external_user_id и
+        Origin.
+      x-required-scopes:
+        - devices:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueIdentityProof"
+  /v1/web/installation-credentials/{id}/recover:
+    post:
+      operationId: recoverBrowserCredential
+      summary: "Backend: восстановить web-credential"
+      tags:
+        - Web Browser
+      responses:
+        "200":
+          description: Операция выполнена.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrowserInstallation"
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "429":
+          $ref: "#/components/responses/429"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Только server API key; backend предварительно проверяет принадлежность установки
+        пользователю своего сайта. browser_key/origin передаются в теле; заголовок Origin не
+        требуется. Прежний credential заменяется.
+      x-required-scopes:
+        - devices:write
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecoverCredential"
+  /v1/web/installation-credentials/{id}/revoke:
+    post:
+      operationId: revokeBrowserCredential
+      summary: "Backend: отозвать web-credential"
+      tags:
+        - Web Browser
+      responses:
+        "204":
+          description: Операция выполнена.
+        "400":
+          $ref: "#/components/responses/400"
+        "401":
+          $ref: "#/components/responses/401"
+        "403":
+          $ref: "#/components/responses/403"
+        "404":
+          $ref: "#/components/responses/404"
+        "500":
+          $ref: "#/components/responses/500"
+      description: Только server API key. Не удаляет установку, её подписки или привязку пользователя.
+      x-required-scopes:
+        - devices:write
+      parameters:
+        - $ref: "#/components/parameters/id"
+components:
+  securitySchemes:
+    ServerApiKey:
+      type: http
+      scheme: bearer
+      description: Секретный ключ проекта sk_test_… / sk_live_…. Scopes указаны в x-required-scopes, это
+        не OAuth. GET установки допускает любой один из указанных scopes.
+    BrowserPublicKey:
+      type: http
+      scheme: bearer
+      description: Публичный wbpub_…; только новая browser registration. Значение совпадает с browser_key
+        в пути.
+    InstallationCredential:
+      type: http
+      scheme: bearer
+      description: Секрет wbinst_… из browser registration/recover/renew, привязан к установке,
+        browser_key и Origin.
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    subscription_id:
+      name: subscription_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    messageID:
+      name: messageID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    browser_key:
+      name: browser_key
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^wbpub_[A-Za-z0-9_-]{6,80}$
+    Origin:
+      name: Origin
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Точное совпадение с разрешённым Origin приложения, включая схему и порт. HTTPS; HTTP
+        localhost допустим для development.
+    application_id:
+      name: application_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    message_id:
+      name: message_id
+      in: query
+      schema:
+        type: string
+        format: uuid
+    from:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: Включительная нижняя граница created_at; рекомендуемый формат RFC 3339 UTC. Для
+        analytics usage — period_start.
+    to:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date-time
+      description: Исключительная верхняя граница created_at; рекомендуемый формат RFC 3339 UTC. Для
+        analytics usage — period_start.
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 50
+      description: Сервер ограничивает значение до 1..200; непарсируемое значение сохраняет default 50.
+    offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+      description: Отрицательное или непарсируемое значение становится 0.
+    status:
+      name: status
+      in: query
+      schema:
+        $ref: "#/components/schemas/DeliveryStatus"
+    platform:
+      name: platform
+      in: query
+      schema:
+        $ref: "#/components/schemas/Platform"
+  responses:
+    "400":
+      description: Некорректный JSON, UUID, параметры или несовместимый scope тела.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    "401":
+      description: Необходима действующая авторизация.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      headers:
+        WWW-Authenticate:
+          description: 'Для server API: Bearer realm="API". Browser auth этот заголовок не устанавливает.'
+          schema:
+            type: string
+    "403":
+      description: Недостаточно прав, другое окружение, запрещённый Origin или недоступная организация.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+        text/plain:
+          schema:
+            type: string
+            description: organization_suspended может быть JSON-текстом с Content-Type text/plain; middleware
+              использует http.Error.
+    "404":
+      description: Ресурс отсутствует или недоступен данному ключу.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    "409":
+      description: Конфликт ресурса / владения установкой.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    "429":
+      description: Лимит Web Browser API. code = rate_limit_exceeded.
+      headers:
+        Retry-After:
+          schema:
+            type: string
+          description: Текущее значение 60 секунд.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    "500":
+      description: Ошибка сервера. Для POST messages также ошибка enqueue или лимита.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Environment:
+      type: string
+      enum:
+        - development
+        - production
+    Platform:
+      type: string
+      enum:
+        - ios
+        - android
+        - web
+    Provider:
+      type: string
+      enum:
+        - apns
+        - fcm
+        - web_push
+    TokenProvider:
+      type: string
+      enum:
+        - apns
+        - apns_voip
+        - fcm
+        - web_push
+    Priority:
+      type: string
+      enum:
+        - critical_voip
+        - transactional
+        - normal
+        - bulk
+    NotificationType:
+      type: string
+      enum:
+        - alert
+        - background
+        - data
+        - voip
+    SubscriptionStatus:
+      type: string
+      enum:
+        - active
+        - invalid
+        - opted_out
+        - expired
+    DeliveryStatus:
+      type: string
+      enum:
+        - pending
+        - queued
+        - sending
+        - sent
+        - delivered
+        - failed
+        - expired
+      description: sent — провайдер принял запрос; delivered требует подтверждения устройства. Публичного
+        receipt API нет.
+    MessageStatus:
+      type: string
+      enum:
+        - pending
+        - processing
+        - sent
+        - delivered
+        - failed
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+                required:
+                  - field
+                  - issue
+          required:
+            - code
+            - message
+      required:
+        - error
+    RegisterInstallation:
+      type: object
+      properties:
+        application_id:
+          type: string
+          format: uuid
+        device_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+        platform:
+          $ref: "#/components/schemas/Platform"
+        environment:
+          $ref: "#/components/schemas/Environment"
+        os_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        app_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        sdk_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        device_model:
+          type: string
+          maxLength: 100
+          nullable: true
+      required:
+        - application_id
+        - device_id
+        - platform
+        - environment
+      example:
+        application_id: 11111111-1111-4111-8111-111111111111
+        device_id: example-device-001
+        platform: android
+        environment: development
+        app_version: 1.0.0
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          description: Имя провайдера записи подписки. Публичная регистрация принимает только значения
+            TokenProvider; исторические записи могут содержать другие имена.
+        token_prefix:
+          type: string
+          description: Маскированный префикс, не полный токен.
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - provider
+        - token_prefix
+        - status
+        - created_at
+        - updated_at
+    Installation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        application_id:
+          type: string
+          format: uuid
+        device_id:
+          type: string
+        platform:
+          $ref: "#/components/schemas/Platform"
+        environment:
+          $ref: "#/components/schemas/Environment"
+        user_id:
+          type: string
+          format: uuid
+        os_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        app_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        sdk_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        device_model:
+          type: string
+          maxLength: 100
+          nullable: true
+        subscriptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subscription"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - application_id
+        - device_id
+        - platform
+        - environment
+        - subscriptions
+        - created_at
+        - updated_at
+    WebPushKeys:
+      type: object
+      properties:
+        p256dh:
+          type: string
+          minLength: 16
+          maxLength: 256
+        auth:
+          type: string
+          minLength: 8
+          maxLength: 256
+      required:
+        - p256dh
+        - auth
+    RegisterToken:
+      type: object
+      properties:
+        provider:
+          $ref: "#/components/schemas/TokenProvider"
+        token:
+          type: string
+          minLength: 32
+          maxLength: 1024
+        endpoint:
+          type: string
+          format: uri
+          maxLength: 2048
+        keys:
+          $ref: "#/components/schemas/WebPushKeys"
+        environment:
+          $ref: "#/components/schemas/Environment"
+      required:
+        - provider
+        - token
+        - environment
+      description: Для web_push token равен endpoint. Если endpoint отсутствует, сервер использует token.
+        Передавайте keys из PushSubscription. Для APNs/FCM используйте токен провайдера.
+      example:
+        provider: fcm
+        token: REPLACE_WITH_REAL_FCM_DEVICE_TOKEN
+        environment: development
+    RegisteredToken:
+      type: object
+      properties:
+        subscription_id:
+          type: string
+          format: uuid
+        token_prefix:
+          type: string
+        status:
+          $ref: "#/components/schemas/SubscriptionStatus"
+      required:
+        - subscription_id
+        - token_prefix
+        - status
+    Login:
+      type: object
+      properties:
+        external_user_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+      required:
+        - external_user_id
+      example:
+        external_user_id: example-user-001
+    LegacyAssociation:
+      type: object
+      properties:
+        external_user_id:
+          type: string
+          nullable: true
+      description: Непустая строка привязывает пользователя; пустая, null или отсутствующее поле снимает
+        привязку. Другие метаданные PATCH не обновляет.
+    Payload:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+        body:
+          type: string
+          nullable: true
+        badge:
+          type: integer
+          nullable: true
+        sound:
+          type: string
+          nullable: true
+        custom_data:
+          type: object
+          additionalProperties: true
+          nullable: true
+        apns:
+          type: object
+          additionalProperties: true
+          nullable: true
+        android:
+          type: object
+          additionalProperties: true
+          nullable: true
+      additionalProperties: true
+      description: API проверяет только JSON object. Поля читает worker; ошибки типов могут возникнуть
+        после 202. Это формат PushPilot, не готовый envelope APNs/FCM. Для alert задайте title или
+        body. Подробности полей провайдеров — docs/contract.md.
+    Recipient:
+      type: object
+      properties:
+        installation_id:
+          type: string
+          format: uuid
+        subscription_id:
+          type: string
+          format: uuid
+      required:
+        - installation_id
+        - subscription_id
+    SendMessage:
+      type: object
+      properties:
+        application_id:
+          type: string
+          format: uuid
+        recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recipient"
+          minItems: 1
+          maxItems: 10000
+        provider:
+          $ref: "#/components/schemas/Provider"
+        platform:
+          $ref: "#/components/schemas/Platform"
+        priority:
+          $ref: "#/components/schemas/Priority"
+        notification_type:
+          $ref: "#/components/schemas/NotificationType"
+        ttl_seconds:
+          type: integer
+          minimum: 60
+        idempotency_key:
+          type: string
+          maxLength: 255
+        payload:
+          $ref: "#/components/schemas/Payload"
+      required:
+        - application_id
+        - recipients
+        - provider
+        - platform
+        - priority
+        - notification_type
+        - ttl_seconds
+        - payload
+      description: "Тело до 65536 байт. Все получатели принадлежат приложению и одному окружению, подписки
+        активны. apns/ios: alert, background, voip (подписка apns_voip); fcm/android: alert,
+        background, data; web_push/web: alert, background. Окружение определяется по подпискам,
+        environment_id не передаётся. TTL ограничивается приоритетом: 600/7200/86400/604800 секунд.
+        idempotency_key в JSON, максимум 255 символов, 24 часа на организацию; сравнения тела нет,
+        конфликт 409 не предусмотрен."
+      example:
+        application_id: 11111111-1111-4111-8111-111111111111
+        recipients:
+          - installation_id: 22222222-2222-4222-8222-222222222222
+            subscription_id: 33333333-3333-4333-8333-333333333333
+        provider: fcm
+        platform: android
+        priority: normal
+        notification_type: alert
+        ttl_seconds: 3600
+        idempotency_key: example-order-001-notification-v1
+        payload:
+          title: PushPilot
+          body: Пример уведомления
+          custom_data:
+            order_id: example-order-001
+    AcceptedMessage:
+      type: object
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        delivery_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+        enqueued_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        ttl_seconds:
+          type: integer
+      required:
+        - message_id
+        - delivery_ids
+        - status
+        - enqueued_at
+        - expires_at
+        - ttl_seconds
+    Delivery:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        message_id:
+          type: string
+          format: uuid
+        delivery_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        application_id:
+          type: string
+          format: uuid
+        environment_id:
+          type: string
+          format: uuid
+        installation_id:
+          type: string
+          format: uuid
+        subscription_id:
+          type: string
+          format: uuid
+        provider:
+          $ref: "#/components/schemas/Provider"
+        platform:
+          $ref: "#/components/schemas/Platform"
+        priority:
+          $ref: "#/components/schemas/Priority"
+        notification_type:
+          $ref: "#/components/schemas/NotificationType"
+        status:
+          $ref: "#/components/schemas/DeliveryStatus"
+        attempt_count:
+          type: integer
+        max_attempts:
+          type: integer
+        ttl_seconds:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        error_code:
+          type: string
+        error_details:
+          type: string
+        idempotency_key:
+          type: string
+        enqueued_at:
+          type: string
+          format: date-time
+        sent_at:
+          type: string
+          format: date-time
+        delivered_at:
+          type: string
+          format: date-time
+        failed_at:
+          type: string
+          format: date-time
+      description: id — ID записи, delivery_id — публичный ID отправки из ответа POST. Необязательные поля
+        с nil опускаются. Связанные модели не загружаются этими маршрутами.
+      required:
+        - id
+        - message_id
+        - delivery_id
+        - organization_id
+        - project_id
+        - application_id
+        - environment_id
+        - installation_id
+        - subscription_id
+        - provider
+        - platform
+        - priority
+        - notification_type
+        - status
+        - attempt_count
+        - max_attempts
+        - ttl_seconds
+        - expires_at
+        - created_at
+        - updated_at
+    MessageRecord:
+      type: object
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        application_id:
+          type: string
+          format: uuid
+        environment_id:
+          type: string
+          format: uuid
+        environment:
+          $ref: "#/components/schemas/Environment"
+        payload:
+          type: string
+          format: byte
+          description: Go []byte сериализуется encoding/json в base64, а не JSON object. Декодируйте base64
+            для чтения исходного JSON.
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - message_id
+        - organization_id
+        - project_id
+        - application_id
+        - environment_id
+        - environment
+        - payload
+        - created_at
+    MessageDetails:
+      type: object
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/MessageStatus"
+        created_at:
+          type: string
+          format: date-time
+        deliveries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Delivery"
+          nullable: true
+      required:
+        - message_id
+        - status
+        - created_at
+        - deliveries
+    MessagePage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageRecord"
+          nullable: true
+        limit:
+          type: integer
+        offset:
+          type: integer
+        organization_id:
+          type: string
+          format: uuid
+      required:
+        - items
+        - limit
+        - offset
+        - organization_id
+    DeliveryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Delivery"
+          nullable: true
+        limit:
+          type: integer
+        offset:
+          type: integer
+      required:
+        - items
+        - limit
+        - offset
+    Analytics:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                $ref: "#/components/schemas/DeliveryStatus"
+              platform:
+                $ref: "#/components/schemas/Platform"
+              application_id:
+                type: string
+                format: uuid
+              count:
+                type: integer
+                format: int64
+            required:
+              - status
+              - platform
+              - application_id
+              - count
+          nullable: true
+        usage:
+          type: array
+          items:
+            type: object
+            properties:
+              metric:
+                type: string
+              count:
+                type: integer
+                format: int64
+            required:
+              - metric
+              - count
+          nullable: true
+        quota:
+          description: JSON limits текущего плана организации; структура зависит от плана.
+        sent_semantics:
+          type: string
+          enum:
+            - provider_accepted
+        delivered_evidence:
+          type: string
+          enum:
+            - device_confirmation_only
+      required:
+        - items
+        - usage
+        - quota
+        - sent_semantics
+        - delivered_evidence
+      description: items группируются по status/platform/application_id в проекте и точном environment_id
+        ключа. usage для ключа без environment_id — суммы по организации, включая другие проекты;
+        application_id его не фильтрует. Для environment-scoped ключа usage ограничен событиями
+        отправок его проекта/окружения. from/to для usage применяются к period_start, для items к
+        created_at. quota — текущий план организации. Нет пагинации или временных buckets.
+    BrowserConfig:
+      type: object
+      properties:
+        application_id:
+          type: string
+          format: uuid
+        environment:
+          $ref: "#/components/schemas/Environment"
+        vapid_public_key:
+          type: string
+      required:
+        - application_id
+        - environment
+        - vapid_public_key
+    BrowserInstallation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        installation_credential:
+          type: string
+          description: Секрет wbinst_…, срок 7 дней. Привязан к установке, browser_key и Origin.
+        credential_expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - installation_credential
+        - credential_expires_at
+        - created_at
+    BrowserRegisterInstallation:
+      type: object
+      properties:
+        application_id:
+          type: string
+          format: uuid
+        device_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+        platform:
+          type: string
+          enum:
+            - web
+        environment:
+          $ref: "#/components/schemas/Environment"
+        os_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        app_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        sdk_version:
+          type: string
+          maxLength: 50
+          nullable: true
+        device_model:
+          type: string
+          maxLength: 100
+          nullable: true
+      description: application_id/environment должны совпасть с config. Метаданные DTO допустимы, но
+        browser registration сохраняет только device_id и scope.
+      required:
+        - application_id
+        - device_id
+        - platform
+        - environment
+      example:
+        application_id: 11111111-1111-4111-8111-111111111111
+        device_id: example-browser-device-001
+        platform: web
+        environment: development
+    BrowserRegisterToken:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - web_push
+        token:
+          type: string
+          minLength: 32
+          maxLength: 1024
+        endpoint:
+          type: string
+          format: uri
+          maxLength: 2048
+        keys:
+          $ref: "#/components/schemas/WebPushKeys"
+        environment:
+          $ref: "#/components/schemas/Environment"
+      description: token = endpoint; HTTPS endpoint без userinfo и fragment. p256dh — корректный P-256
+        public key в base64url без padding; auth — 16 байт в base64url без padding. environment
+        совпадает с установкой.
+      required:
+        - provider
+        - token
+        - endpoint
+        - keys
+        - environment
+    BrowserRegisteredToken:
+      type: object
+      properties:
+        subscription_id:
+          type: string
+          format: uuid
+      required:
+        - subscription_id
+    BrowserLogin:
+      type: object
+      properties:
+        external_user_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+        identity_proof:
+          type: string
+      required:
+        - external_user_id
+        - identity_proof
+    IssueIdentityProof:
+      type: object
+      properties:
+        installation_id:
+          type: string
+          format: uuid
+        browser_key:
+          type: string
+        origin:
+          type: string
+        external_user_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+      required:
+        - installation_id
+        - browser_key
+        - origin
+        - external_user_id
+    IdentityProof:
+      type: object
+      properties:
+        identity_proof:
+          type: string
+          description: Одноразовый proof со сроком 1 минута для конкретного пользователя, установки и Origin.
+      required:
+        - identity_proof
+    RecoverCredential:
+      type: object
+      properties:
+        browser_key:
+          type: string
+        origin:
+          type: string
+      required:
+        - browser_key
+        - origin
+    EmptyObject:
+      type: object
+      properties: {}
